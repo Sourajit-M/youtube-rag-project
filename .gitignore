@@ -1,0 +1,23 @@
+# Environment
+.env
+*.env
+
+# Data — never commit your vector DB or transcripts
+data/
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# uv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
