@@ -1,49 +1,63 @@
-import sys
-import os
-from pathlib import Path
+import pytest
+from app.core.chunker import TranscriptChunker, Chunk
 
-root_path = Path(__file__).resolve().parent.parent
-if str(root_path) not in sys.path:
-  sys.path.append(str(root_path))
 
-from app.core.chunker import TranscriptChunker
+@pytest.fixture
+def chunker():
+  return TranscriptChunker()
 
-chunker = TranscriptChunker()
 
-# Simulate a short transcript
-sample = '''
-Photosynthesis is the process by which plants use sunlight water and carbon dioxide
-to produce oxygen and energy in the form of sugar. This process happens in the
-chloroplasts of plant cells specifically using a green pigment called chlorophyll.
-Chlorophyll absorbs light most efficiently in the red and blue parts of the spectrum
-and reflects green light which is why plants appear green to our eyes.
-The process of photosynthesis has two main stages. The first stage is called the
-light dependent reactions which occur in the thylakoid membranes. During this stage
-light energy is captured and used to split water molecules releasing oxygen as a
-byproduct. The energy captured is stored in molecules called ATP and NADPH.
-The second stage is called the Calvin cycle or light independent reactions which
-occur in the stroma of the chloroplast. During this stage the plant uses the ATP
-and NADPH produced in the first stage along with carbon dioxide from the air to
-build sugar molecules through a series of chemical reactions.
-''' * 4   # repeat to get enough tokens to produce multiple chunks
+def test_basic_chunking_produces_chunks(chunker):
+  text = "word " * 400  # 400 words — should produce multiple chunks
+  chunks = chunker.chunk(text)
+  assert len(chunks) >= 2
 
-chunks = chunker.chunk(sample)
-print(f'Total words: {len(sample.split())}')
-print(f'Chunks produced: {len(chunks)}')
-print()
-for c in chunks:
-  word_count = len(c.text.split())
-  print(f'  Chunk {c.chunk_index}: tokens {c.start_token}-{c.end_token} ({word_count} words)')
-  print(f'    starts: \"{c.text[:60]}...\"')
-  print(f'    ends:   \"...{c.text[-60:]}\"')
-  print()
 
-# Verify overlap: end of chunk 0 and start of chunk 1 should share words
-if len(chunks) >= 2:
-  words_0 = chunks[0].text.split()
-  words_1 = chunks[1].text.split()
-  shared = words_0[-50:]  # last 50 words of chunk 0
-  start_1 = words_1[:50]  # first 50 words of chunk 1
-  overlap_count = len(set(shared) & set(start_1))
-  print(f'Overlap check: ~{overlap_count} shared words between chunk 0 and chunk 1')
-  print('(not exact due to repeated words in sample, but should be > 0)')
+def test_chunk_size_respected(chunker):
+  text = "word " * 400
+  chunks = chunker.chunk(text)
+  for c in chunks[:-1]:  # last chunk can be shorter
+    assert len(c.text.split()) <= chunker.chunk_size
+
+
+def test_overlap_exists(chunker):
+  """Last words of chunk N should appear at start of chunk N+1."""
+  text = "word " * 400
+  chunks = chunker.chunk(text)
+  if len(chunks) >= 2:
+    end_words = set(chunks[0].text.split()[-chunker.overlap:])
+    start_words = set(chunks[1].text.split()[:chunker.overlap])
+    assert len(end_words & start_words) > 0
+
+
+def test_short_transcript_returns_single_chunk(chunker):
+  text = "This is a very short transcript with few words."
+  chunks = chunker.chunk(text)
+  assert len(chunks) == 1
+
+
+def test_empty_transcript_returns_no_chunks(chunker):
+  chunks = chunker.chunk("")
+  assert chunks == []
+
+
+def test_chunk_index_is_sequential(chunker):
+  text = "word " * 400
+  chunks = chunker.chunk(text)
+  for i, chunk in enumerate(chunks):
+    assert chunk.chunk_index == i
+
+
+def test_cleaning_removes_music_tags(chunker):
+  text = "[Music] hello world [Applause] this is a test " * 50
+  chunks = chunker.chunk(text)
+  for c in chunks:
+    assert "[Music]" not in c.text
+    assert "[Applause]" not in c.text
+
+
+def test_chunk_texts_returns_strings(chunker):
+  text = "word " * 400
+  texts = chunker.chunk_texts(text)
+  assert all(isinstance(t, str) for t in texts)
+  assert len(texts) >= 2

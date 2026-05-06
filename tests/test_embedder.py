@@ -1,46 +1,53 @@
-import os
-from pathlib import Path
-import sys
+import pytest
+from app.core.embedder import Embedder, get_embedder
 
-root_path = Path(__file__).resolve().parent.parent
-if str(root_path) not in sys.path:
-  sys.path.append(str(root_path))
 
-from app.core.embedder import get_embedder
+@pytest.fixture(scope="module")  # load model once for all tests in this file
+def embedder():
+  return Embedder()
 
-embedder = get_embedder()
-print('Model loaded')
 
-# Embed a batch (how ingestion uses it)
-chunks = [
-    'Photosynthesis converts sunlight into chemical energy.',
-    'Chlorophyll absorbs red and blue light, reflects green.',
-    'The Calvin cycle produces sugar using carbon dioxide.',
-]
-vectors = embedder.embed(chunks)
-print(f'Batch embed: {len(vectors)} vectors, each {len(vectors[0])} dims')
+def test_embed_returns_correct_dimensions(embedder):
+  vectors = embedder.embed(["hello world"])
+  assert len(vectors) == 1
+  assert len(vectors[0]) == 384
 
-# Embed a query (how retrieval uses it)
-query_vec = embedder.embed_one('how do plants make food')
-print(f'Query embed: {len(query_vec)} dims')
 
-# Sanity check: similar texts should have higher cosine similarity
-# than unrelated texts — let's verify manually
-import math
+def test_embed_batch(embedder):
+  texts = ["first sentence", "second sentence", "third sentence"]
+  vectors = embedder.embed(texts)
+  assert len(vectors) == 3
+  assert all(len(v) == 384 for v in vectors)
 
-def cosine(a, b):
-    dot = sum(x*y for x,y in zip(a,b))
-    mag_a = math.sqrt(sum(x**2 for x in a))
-    mag_b = math.sqrt(sum(x**2 for x in b))
-    return dot / (mag_a * mag_b)
 
-sim_0_query = cosine(vectors[0], query_vec)
-sim_2_query = cosine(vectors[2], query_vec)  # Calvin cycle — less related to 'make food'
+def test_embed_one_returns_single_vector(embedder):
+  vec = embedder.embed_one("test query")
+  assert len(vec) == 384
+  assert isinstance(vec, list)
 
-print(f'Similarity: chunk0 (photosynthesis) vs query: {sim_0_query:.3f}')
-print(f'Similarity: chunk2 (calvin cycle)   vs query: {sim_2_query:.3f}')
-print(f'Chunk0 more relevant: {sim_0_query > sim_2_query}  (should be True)')
 
-# Singleton check — same object, model loads once
-e2 = get_embedder()
-print(f'Singleton works: {embedder is e2}  (should be True)')
+def test_embed_empty_list(embedder):
+  result = embedder.embed([])
+  assert result == []
+
+
+def test_similar_texts_closer_than_unrelated(embedder):
+  """Core sanity check — semantic similarity works."""
+  vec_a = embedder.embed_one("photosynthesis converts sunlight to energy")
+  vec_b = embedder.embed_one("plants use light to produce glucose")
+  vec_c = embedder.embed_one("the stock market crashed yesterday")
+
+  def cosine(a, b):
+    import math
+    dot = sum(x * y for x, y in zip(a, b))
+    return dot / (math.sqrt(sum(x**2 for x in a)) * math.sqrt(sum(x**2 for x in b)))
+
+  sim_related = cosine(vec_a, vec_b)
+  sim_unrelated = cosine(vec_a, vec_c)
+  assert sim_related > sim_unrelated
+
+
+def test_singleton_returns_same_instance():
+  e1 = get_embedder()
+  e2 = get_embedder()
+  assert e1 is e2
