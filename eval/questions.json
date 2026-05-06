@@ -1,0 +1,32 @@
+[
+  {
+    "id": "q01",
+    "question": "How was the Earth formed?",
+    "expected_source": "How did Earth form?: Crash Course Geology #2",
+    "keywords": ["solar system", "gas", "dust", "4.6 billion"]
+  },
+  {
+    "id": "q02",
+    "question": "What is the difference between the crust and the mantle?",
+    "expected_source": "Earth's Crust and Mantle Explained: Crash Course Geology #3",
+    "keywords": ["crust", "mantle", "layers"]
+  },
+  {
+    "id": "q03",
+    "question": "What causes earthquakes and volcanic activity?",
+    "expected_source": "Intro to Geology: Crash Course Geology #1",
+    "keywords": ["plate", "tectonic", "seismic"]
+  },
+  {
+    "id": "q04",
+    "question": "What is geology and why does it matter?",
+    "expected_source": "Intro to Geology: Crash Course Geology #1",
+    "keywords": ["geology", "earth", "science"]
+  },
+  {
+    "id": "q05",
+    "question": "How do scientists study the interior of the Earth?",
+    "expected_source": "Earth's Crust and Mantle Explained: Crash Course Geology #3",
+    "keywords": ["seismic", "waves", "interior"]
+  }
+]
