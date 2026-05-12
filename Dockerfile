@@ -21,19 +21,23 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies (ffmpeg for audio processing)
+# Install runtime dependencies (ffmpeg for audio processing, curl for health checks)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv 
 COPY app/ ./app/
 COPY eval/ ./eval/
+COPY main.py ./
+COPY start.sh ./
+RUN chmod +x start.sh
 
 # Make venv the active Python
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 
-# Render.com sets PORT dynamically — default to 8000 locally
-EXPOSE 8000
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hugging Face Spaces uses 7860 by default
+EXPOSE 7860
+CMD ["./start.sh"]

@@ -735,3 +735,38 @@ Local-first, zero-infrastructure metadata store. SQLModel (SQLAlchemy under the 
 | **APScheduler** | Python background job scheduler (in-process, no broker required) |
 | **Top-K** | The number of chunks retrieved for a given query (configurable, default 5) |
 | **Hit Rate** | Eval metric: % of questions where the expected source video was retrieved |
+
+---
+
+## 13. Deployment Guide (Free)
+
+The easiest way to deploy this app for free is using **Hugging Face Spaces** with Docker.
+
+### Step 1: Prepare the Repository
+Ensure your repository contains:
+- `Dockerfile` (configured to run both API and UI)
+- `start.sh` (entry point script)
+- `pyproject.toml` and `uv.lock`
+
+### Step 2: Create a Hugging Face Space
+1. Go to [huggingface.co/new-space](https://huggingface.co/new-space).
+2. Give your Space a name.
+3. Select **Docker** as the SDK.
+4. Choose the "Blank" template.
+5. Set the Space to **Public** or **Private**.
+
+### Step 3: Configure Environment Variables
+In your Space settings, add the following secrets:
+- `GROQ_API_KEY`: Your Groq API key.
+- `GEMINI_API_KEY`: Your Gemini API key.
+- `YOUTUBE_API_KEY`: Your YouTube Data API v3 key.
+- `API_URL`: Set to `http://localhost:8000` (internal container URL).
+
+### Step 4: Push to Hugging Face
+Link your GitHub repository or upload the files directly. Hugging Face will automatically build the Docker image and start the services.
+
+### Alternative: Render.com (Free Tier)
+1. Deploy the FastAPI backend as a **Web Service**.
+2. Deploy the Streamlit frontend as another **Web Service**.
+3. Point the frontend to the backend's URL via the `API_URL` environment variable.
+*Note: Render's free tier spins down after inactivity, causing a slow initial load.*

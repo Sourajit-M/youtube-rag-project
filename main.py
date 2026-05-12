@@ -1,8 +1,10 @@
+import os
 import time
 import requests
 import streamlit as st
 
-API_URL = "http://localhost:8000"
+# Use environment variable for API URL in deployment
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(
   page_title="YouTube RAG Engine",
