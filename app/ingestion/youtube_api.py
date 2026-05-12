@@ -13,6 +13,60 @@ def get_youtube_client():
 
 
 #channel resolution
+def extract_video_id(video_input: str) -> Optional[str]:
+  """
+  Extracts the YouTube video ID from a URL or raw ID.
+  Handles watch URLs, youtu.be, and embed URLs.
+  """
+  video_input = video_input.strip()
+
+  # Regular expression for various YouTube URL formats
+  patterns = [
+    r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
+    r'youtu\.be\/([0-9A-Za-z_-]{11})',
+  ]
+
+  for pattern in patterns:
+    match = re.search(pattern, video_input)
+    if match:
+      return match.group(1)
+
+  # Check if the input is a raw 11-char ID
+  if re.match(r'^[0-9A-Za-z_-]{11}$', video_input):
+    return video_input
+
+  return None
+
+def fetch_video_details_by_id(video_id: str) -> dict:
+  """Fetch full details for a single video including channelId."""
+  youtube = get_youtube_client()
+  response = youtube.videos().list(
+    part="snippet,contentDetails,statistics",
+    id=video_id
+  ).execute()
+
+  if not response.get("items"):
+    raise ValueError(f"Video not found: {video_id}")
+
+  return _parse_video(response["items"][0])
+
+def fetch_channel_info(channel_id: str) -> dict:
+  """Fetch basic channel info (name)."""
+  youtube = get_youtube_client()
+  response = youtube.channels().list(
+    part="snippet",
+    id=channel_id
+  ).execute()
+
+  if not response.get("items"):
+    raise ValueError(f"Channel not found: {channel_id}")
+
+  item = response["items"][0]
+  return {
+    "id": item["id"],
+    "title": item["snippet"]["title"]
+  }
+
 def resolve_channel_id(channel_input: str) -> tuple[str, str]:
   youtube = get_youtube_client()
 
@@ -109,6 +163,7 @@ def _parse_video(item: dict) -> dict:
 
   return {
     "youtube_id": item["id"],
+    "channel_id": snippet.get("channelId"),
     "title": snippet.get("title", ""),
     "description": snippet.get("description", "")[:500],
     "published_at": _parse_iso_datetime(snippet.get("publishedAt")),

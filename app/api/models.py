@@ -8,7 +8,7 @@ class AddChannelRequest(BaseModel):
   )
   max_videos: int = Field(
     default=50,
-    ge=1,
+    ge=0,
     le=500,
     description="Max videos to ingest on first add"
   )
@@ -53,6 +53,7 @@ class SearchResult(BaseModel):
   channel_name: str
   text: str
   rrf_score: float
+  chunk_index: int
 
 
 class SearchResponse(BaseModel):
@@ -74,6 +75,19 @@ class AddChannelResponse(BaseModel):
   videos_ingested: int
   videos_failed: int
   message: str
+
+
+class VideoResponse(BaseModel):
+  youtube_id: str
+  title: str
+  description: Optional[str]
+  published_at: Optional[str]
+  duration_seconds: Optional[int]
+  view_count: Optional[int]
+  like_count: Optional[int]
+  thumbnail_url: Optional[str]
+  ingested: bool
+  ingested_at: Optional[str]
 
 
 class HealthResponse(BaseModel):

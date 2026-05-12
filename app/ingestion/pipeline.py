@@ -11,7 +11,10 @@ from app.db.sqlite import (
   mark_video_ingested, update_job,
 )
 from app.db.vectordb import VectorDB
-from app.ingestion.youtube_api import fetch_channel_videos, resolve_channel_id
+from app.ingestion.youtube_api import (
+  fetch_channel_videos, resolve_channel_id,
+  extract_video_id, fetch_video_details_by_id, fetch_channel_info
+)
 from app.ingestion.transcripts import fetch_transcript
 
 
@@ -40,8 +43,13 @@ class IngestionPipeline:
     Register a new channel and ingest its videos.
     Entry point for the POST /channels API endpoint.
 
-    Returns a summary dict for the API response.
+    Can also handle a single video URL.
     """
+    video_id = extract_video_id(channel_input)
+
+    if video_id:
+      return self._add_single_video(video_id)
+
     print(f"Resolving channel: {channel_input}")
     channel_id, channel_name = resolve_channel_id(channel_input)
 
@@ -83,6 +91,51 @@ class IngestionPipeline:
       "channel_name": channel_name,
       "videos_found": len(videos),
       **results,
+    }
+
+  def _add_single_video(self, video_id: str) -> dict:
+    """Ingest a single video regardless of channel."""
+    print(f"Single video ingestion: {video_id}")
+    v = fetch_video_details_by_id(video_id)
+    channel_id = v["channel_id"]
+
+    # Ensure channel exists
+    ch_info = fetch_channel_info(channel_id)
+    with Session(self._engine) as session:
+      channel = add_channel(
+        session,
+        youtube_id=channel_id,
+        name=ch_info["title"],
+        url=f"https://youtube.com/channel/{channel_id}"
+      )
+
+      # Register the video
+      add_video(
+        session,
+        youtube_id=video_id,
+        channel_youtube_id=channel_id,
+        title=v["title"],
+        description=v.get("description"),
+        published_at=v.get("published_at"),
+        duration_seconds=v.get("duration_seconds"),
+        view_count=v.get("view_count"),
+        like_count=v.get("like_count"),
+        thumbnail_url=v.get("thumbnail_url"),
+      )
+
+    success = self._ingest_one_video(video_id, v["title"])
+
+    if success:
+      from app.core.retriever import HybridRetriever
+      retriever = HybridRetriever()
+      retriever.rebuild_bm25()
+
+    return {
+      "channel_id": channel_id,
+      "channel_name": ch_info["title"],
+      "videos_found": 1,
+      "videos_ingested": 1 if success else 0,
+      "videos_failed": 0 if success else 1,
     }
 
   def run_scheduled_check(self) -> None:

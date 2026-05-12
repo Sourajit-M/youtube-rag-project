@@ -46,19 +46,24 @@ def fetch_transcript(video_id: str) -> Optional[str]:
 
 
 def _parse_vtt(vtt_path: Path) -> Optional[str]:
-    """Parse VTT file into clean deduplicated text."""
     try:
         seen: set[str] = set()
         lines: list[str] = []
 
-        for caption in webvtt.read(str(vtt_path)):
-            text = caption.text.strip()
-            text = re.sub(r'\s+', ' ', text)
-            text = re.sub(r'<[^>]+>', '', text)
+        # Decode raw bytes with errors='replace' so no byte ever raises.
+        # Pass encoding='utf-8' to webvtt.read() to avoid Windows falling
+        # back to cp1252 (which chokes on 0x92 smart-quotes, etc.).
+        raw = vtt_path.read_bytes().decode("utf-8", errors="replace")
+        clean_path = vtt_path.with_suffix(".clean.vtt")
+        clean_path.write_text(raw, encoding="utf-8")
 
-            if text and text not in seen:
-                seen.add(text)
-                lines.append(text)
+        for caption in webvtt.read(str(clean_path), encoding="utf-8"):
+            for line in caption.text.strip().splitlines():
+                line = line.strip()
+                line = re.sub(r'<[^>]+>', '', line)
+                if line and line not in seen:
+                    seen.add(line)
+                    lines.append(line)
 
         return ' '.join(lines) if lines else None
 

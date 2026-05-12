@@ -1,126 +1,101 @@
-# YouTube RAG Engine
+# 📺 YouTube RAG Engine
 
-A production-grade Retrieval-Augmented Generation (RAG) system that lets
-you search and ask questions across any YouTube channel's transcript content.
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![LiteLLM](https://img.shields.io/badge/LiteLLM-LLM--Agnostic-blue)](https://github.com/BerriAI/litellm)
+[![VectorDB](https://img.shields.io/badge/ChromaDB-Vector--Search-green)](https://www.trychroma.com/)
 
-**Live demo:** [your-deployment-url]  
-**API docs:** [your-deployment-url/docs]
+A production-grade Retrieval-Augmented Generation (RAG) system that lets you search and ask questions across any YouTube channel's transcript content.
+
+🔗 **Live Demo:** [your-deployment-url]  
+📖 **API Docs:** [your-deployment-url/docs][cite: 1]
 
 ---
 
-## What it does
+## ✨ Features
 
-- Add any YouTube channel → transcripts are automatically extracted,
-  chunked, and embedded
-- Ask natural language questions → answers grounded in real video content,
-  with source citations
-- Hybrid retrieval (BM25 + vector search) ensures both exact term matching
-  and semantic similarity
-- Provider-agnostic LLM layer via LiteLLM — swap Groq, Gemini, or any
-  provider with one environment variable
+*   **Selective Ingestion:** Paste a single video URL for instant learning, or add an entire channel and pick exactly which videos to index.
+*   **Grounded Answers:** Ask natural language questions and receive answers grounded in real video content with source citations.
+*   **SaaS-Ready Architecture:** Clean, modular design ready for multi-user isolated workspaces.
+*   **Hybrid Retrieval:** Uses RRF (Reciprocal Rank Fusion) to combine BM25 (exact term matching) and Vector Search (semantic similarity).
+*   **Provider Agnostic:** Powered by LiteLLM to easily swap between providers like Groq and Gemini.
+*   **Background Sync:** Background scheduler polls channels automatically for new content.
 
-## Architecture
-User query
-│
-▼
-FastAPI (/ask, /search, /channels, /health)
-│
-├── Hybrid Retriever
-│       ├── BM25 (rank-bm25) — exact term matching
-│       ├── Vector search (ChromaDB) — semantic similarity
-│       └── RRF fusion — combines both ranked lists
-│
-├── LiteLLM router — Groq (primary) → Gemini (fallback)
-│
-└── RAG pipeline — retrieved chunks → prompt → grounded answer
-Background scheduler (APScheduler) polls channels hourly for new videos.
-Ingestion: YouTube API → yt-dlp → TranscriptChunker → FastEmbed → ChromaDB
+---
 
-## Tech stack
+## 🏗️ Architecture
 
-| Layer | Technology | Why |
-|---|---|---|
-| API | FastAPI + Pydantic v2 | Async, auto-docs, type-safe |
-| LLM | LiteLLM (Groq + Gemini) | Provider-agnostic, one-line switching |
-| Vector DB | ChromaDB | Persistent, local-first, HNSW indexing |
-| Keyword search | rank-bm25 | Exact term recall, same algo as Elasticsearch |
-| Fusion | Reciprocal Rank Fusion | No score normalisation needed |
-| Embeddings | FastEmbed (MiniLM-L6-v2) | ONNX runtime, CPU-only, 384-dim |
-| Metadata DB | SQLite + SQLModel | Channels, videos, job tracking |
-| Scheduler | APScheduler | In-process, no Redis needed |
-| Packaging | uv | 10-100x faster than pip, lock files |
-| Container | Docker (multi-stage) | Slim runtime image |
+### High-Level Flow
+1.  **Ingestion:** YouTube API → `yt-dlp` → `TranscriptChunker` → `FastEmbed` → `ChromaDB`.
+2.  **Retrieval:** Hybrid Retriever combines BM25 and Vector search (ChromaDB) using RRF fusion.
+3.  **Generation:** RAG pipeline sends retrieved chunks and prompts through LiteLLM (Groq primary, Gemini fallback).
 
-## Eval results
+---
 
-Evaluated on 5 labelled questions against 3 ingested CrashCourse videos:
+## 🛠️ Tech Stack
 
-| Metric | Score |
-|---|---|
-| Retrieval hit rate | 5/5 (100%) |
-| Answer keyword rate | 5/5 (100%) |
+| Layer | Technology | Rationale |
+| :--- | :--- | :--- |
+| **API** | FastAPI + Pydantic v2 | Async, auto-docs, and type-safety. |
+| **LLM Gateway** | LiteLLM | Provider-agnostic with one-line switching. |
+| **Vector DB** | ChromaDB | Persistent, local-first HNSW indexing. |
+| **Keyword Search** | rank-bm25 | Provides exact term recall. |
+| **Embeddings** | FastEmbed | CPU-only ONNX runtime using MiniLM-L6-v2. |
+| **Metadata DB** | SQLite + SQLModel | Manages channels, videos, and job tracking. |
+| **Package Mgr** | uv | 10-100x faster than pip with lock file support. |
 
-## Quickstart
+---
 
-### Prerequisites
-- Python 3.11+
-- uv (`pip install uv`)
-- API keys: Groq, Gemini, YouTube Data API v3
+## 🚀 Quickstart
 
-### Setup
+### 1. Prerequisites
+*   Python 3.11+
+*   uv (`pip install uv`)
+*   API keys: Groq, Gemini, YouTube Data API v3
 
+### 2. Setup
 ```bash
 git clone https://github.com/yourname/youtube-rag-engine
 cd youtube-rag-engine
 
+# Sync dependencies
 uv sync
 
+# Configure environment
 cp .env.example .env
 # Edit .env with your API keys
 
+# Start server
 uv run uvicorn app.api.main:app --reload --port 8000
+
+# Start UI
+uv run streamlit run main.py --server.port 8501
 ```
 
-### Add a channel and ask questions
+## 🕹️ Usage Examples
 
+### Add a Single Video (Recommended)
+Paste a direct URL to quickly learn from one video:
 ```bash
-# Add a YouTube channel
 curl -X POST http://localhost:8000/channels \
   -H "Content-Type: application/json" \
-  -d '{"channel_input": "@crashcourse", "max_videos": 10}'
+  -d '{"channel_input": "https://www.youtube.com/watch?v=3JdpD3X2Md8"}'
+```
 
-# Ask a question
+### Add a Channel (Selective)
+```bash
+curl -X POST http://localhost:8000/channels \
+  -H "Content-Type: application/json" \
+  -d '{"channel_input": "@crashcourse", "max_videos": 5}'
+```
+
+### Ask a Question
+```bash
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "How was the Earth formed?"}'
-
-# Search without LLM generation
-curl -X POST http://localhost:8000/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "plate tectonics"}'
 ```
-
-### Run tests
-
-```bash
-uv run pytest tests/ -v
-# 27 passed
+## 📂 Project Structure
 ```
-
-### Run eval
-
-```bash
-uv run python eval/run_eval.py
-```
-
-### Docker
-
-```bash
-docker build -t youtube-rag-engine .
-docker run -p 8000:8000 --env-file .env youtube-rag-engine
-```
-
-## Project structure
 app/
 ├── api/          # FastAPI routes, Pydantic models
 ├── core/         # Chunker, embedder, retriever, LLM, RAG pipeline
@@ -128,7 +103,7 @@ app/
 └── ingestion/    # YouTube API, transcript extraction, pipeline, scheduler
 eval/             # Labelled questions + evaluation harness
 tests/            # 27 pytest tests covering all core modules
-
+```
 
 ## Key design decisions
 

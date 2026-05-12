@@ -212,3 +212,45 @@ def update_job(session: Session, job_id: int, status: JobStatus, error_message: 
       job.chunks_created = chunks_created
     session.add(job)
     session.commit()
+
+
+def get_videos_by_channel(session: Session, channel_youtube_id: str) -> list[Video]:
+  """Returns all videos for a given channel, ordered newest first."""
+  return list(
+    session.exec(
+      select(Video)
+      .where(Video.channel_youtube_id == channel_youtube_id)
+      .order_by(Video.published_at.desc())  # type: ignore[arg-type]
+    ).all()
+  )
+
+
+def delete_channel(session: Session, youtube_id: str) -> bool:
+  """
+  Deletes a channel and all its associated videos + ingestion jobs from SQLite.
+  Returns True if the channel existed, False otherwise.
+  Callers are responsible for removing chunks from ChromaDB separately.
+  """
+  channel = session.exec(
+    select(Channel).where(Channel.youtube_id == youtube_id)
+  ).first()
+
+  if not channel:
+    return False
+
+  # Delete ingestion jobs for every video in this channel
+  videos = session.exec(
+    select(Video).where(Video.channel_youtube_id == youtube_id)
+  ).all()
+
+  for video in videos:
+    jobs = session.exec(
+      select(IngestionJob).where(IngestionJob.video_youtube_id == video.youtube_id)
+    ).all()
+    for job in jobs:
+      session.delete(job)
+    session.delete(video)
+
+  session.delete(channel)
+  session.commit()
+  return True
